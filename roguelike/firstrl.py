@@ -9,13 +9,14 @@ MAP_WIDTH = 80
 MAP_HEIGHT = 45
 
 #maximum frames-per-second
-LIMIT_FPS = 10
+LIMIT_FPS = 15
 
 #tile colors
 color_dark_wall = libtcod.Color(0,0,100)
 color_light_wall = libtcod.Color(130, 110, 50)
 color_dark_ground = libtcod.Color(50,50,150)
 color_light_ground = libtcod.Color(200, 180, 50)
+#black = libtcod.Color(0,0,0)
 
 #player details
 playerx = SCREEN_WIDTH/2
@@ -25,6 +26,7 @@ playery = SCREEN_HEIGHT/2
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
+MAX_ROOM_MONSTERS = 3
 
 #field of view
 FOV_ALGO = 0 #default
@@ -62,14 +64,16 @@ class Tile: #a tile of the map and its properties
 		self.explored = False
 
 class Object: #generic object: player, monster, item. etc
-	def __init__(self,x,y,char,color):
+	def __init__(self,x,y,char, name, color, blocks=False):
+		self.name = name
+		self.blocks = blocks
 		self.x = x
 		self.y = y
 		self.char = char
 		self.color = color
 
 	def move(self,dx,dy): #move by given amount
-		if not map[self.x + dx][self.y + dy].blocked:
+		if not is_blocked(self.x + dx, self.y + dy):
 			self.x += dx
 			self.y += dy
 
@@ -140,8 +144,8 @@ def make_map():
 			#center coordinates of new room
 			(new_x, new_y) = new_room.center()
 
-			room_no = Object(new_x, new_y, chr(65+num_rooms), libtcod.white)
-			objects.insert(0, room_no)
+			#room_no = Object(new_x, new_y, chr(65+num_rooms), 'room number', libtcod.white)
+			#objects.insert(0, room_no)
 
 			if num_rooms == 0:
 				#first room where player starts
@@ -160,6 +164,10 @@ def make_map():
 					#first move horizontal then vertical
 					create_v_tunnel(prev_y, new_y, prev_x)
 					create_h_tunnel(prev_x, new_x, new_y)
+
+			#add some content to rooms, ie monsters
+			place_objects(new_room)
+
 			#append new room to list
 			rooms.append(new_room)
 			num_rooms += 1
@@ -201,46 +209,110 @@ def render_all():
 	
 def handle_keys():
 	global fov_recompute
-	key = libtcod.console_check_for_keypress()
+	key = libtcod.console_check_for_keypress(True)
+	#key = libtcod.console_check_for_keypress() //for real time
 
 	if key.vk == libtcod.KEY_ENTER and key.lalt:
 		#Alt + Enter: toggle fullscreen
 		libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
 
 	elif key.vk == libtcod.KEY_ESCAPE:
-		return True #exit game
+		return 'exit' #exit game
 
-	#movement keys
-	if libtcod.console_is_key_pressed(libtcod.KEY_UP):
-		#diagonal checks!
-		if libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-			player.move(1,-1)
-			fov_recompute = True
+	if game_state == 'playing':
+		#movement keys
+		if libtcod.console_is_key_pressed(libtcod.KEY_UP):
+			#diagonal checks!
+			if libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+				player_move_or_attack(1,-1)
+				
+			elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
+				player_move_or_attack(-1,-1)
+				
+			else:
+				player_move_or_attack(0,-1)
+				
+
+		elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
+			#diagonal checks!
+			if libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+				player_move_or_attack(1,1)
+
+			elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
+				player_move_or_attack(-1,1)
+				
+			else:
+				player_move_or_attack(0,1)
+				
+
 		elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-			player.move(-1,-1)
-			fov_recompute = True
+			player_move_or_attack(-1,0)
+			
+
+		elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+			player_move_or_attack(1,0)
+			
 		else:
-			player.move(0,-1)
-			fov_recompute = True
+			return 'didnt-take-turn'
 
-	elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-		#diagonal checks!
-		if libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-			player.move(1,1)
-			fov_recompute = True
-		elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-			player.move(-1,1)
-			fov_recompute = True
+
+
+def place_objects(room):
+	#random number of monsters
+	num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
+
+	for i in range(num_monsters):
+		#choose random spot for monster
+		x = libtcod.random_get_int(0, room.x1, room.x2)
+		y = libtcod.random_get_int(0, room.y1, room.y2)
+
+		dice = libtcod.random_get_int(0, 0, 100)
+
+		if dice < 75: #75% chance of a centaur
+			#create centaur
+			monster = Object(x, y, 'h', 'centaur', libtcod.dark_sepia, blocks=True)
+		elif dice < 80: #5% chance of a CTHULU
+			#creat cthulu
+			monster = Object(x, y, 'C', 'CTHULU', libtcod.dark_green, blocks=True)
 		else:
-			player.move(0,1)
-			fov_recompute = True
+			#create Jogoth
+			monster = Object(x, y, 'J', "Jogoth", libtcod.light_cyan, blocks=True)
 
-	elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-		player.move(-1,0)
-		fov_recompute = True
+		#only place if tile in not blocked
+		if not is_blocked(x, y):
+			objects.append(monster)	
 
-	elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-		player.move(1,0)
+def is_blocked(x, y):
+	#test map tile
+	if map[x][y].blocked:
+		return True
+
+	#check for blocking objects
+	for object in objects:
+		if object.blocks and object.x == x and object.y == y:
+			return True
+
+	return False
+
+def player_move_or_attack(dx, dy):
+	global fov_recompute
+
+	#the coordinates of the player is moving to/attacking
+	x = player.x + dx
+	y = player.y + dy
+
+	#try to find an attackable object there
+	target = None
+	for object in objects:
+		if object.x == x and object.y == y:
+			target = object
+			break
+
+	#attack target if found, otherwise, move along
+	if target is not None:
+		print 'The ' + target.name + ' gets hit! For 0 damage..'
+	else:
+		player.move(dx, dy)
 		fov_recompute = True
 
 
@@ -257,13 +329,10 @@ libtcod.sys_set_fps(LIMIT_FPS)
 con = libtcod.console_new(SCREEN_WIDTH,SCREEN_HEIGHT)
 
 #create object representing the player
-player = Object(SCREEN_WIDTH/2,SCREEN_HEIGHT/2,'@',libtcod.white)
-
-#create an NPC
-npc = Object(SCREEN_WIDTH/2 - 5,SCREEN_HEIGHT/2,'@',libtcod.yellow)
+player = Object(0, 0, '@', 'player', libtcod.white, blocks=True)
 
 #list of objects with those two
-objects = [npc,player]
+objects = [player]
 
 #generate map
 make_map()
@@ -274,6 +343,10 @@ for y in range(MAP_HEIGHT):
 	for x in range(MAP_WIDTH):
 		libtcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
 fov_recompute = True
+
+game_state = 'playing'
+player_action = None
+
 
 #Game loop		
 while not libtcod.console_is_window_closed():
@@ -288,6 +361,12 @@ while not libtcod.console_is_window_closed():
 		object.clear()
 
 	#handle keys and exit game
-	exit = handle_keys()
-	if exit:
+	player_action = handle_keys()
+	if player_action == 'exit':
 		break
+
+	#monsters take their turn
+	if game_state == 'playing' and player_action != 'didnt-take-turn':
+		for object in objects:
+			if object != player:
+				print 'The ' + object.name + ' growls!'
