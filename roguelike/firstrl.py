@@ -1,4 +1,5 @@
 import libtcodpy as libtcod
+import math
 
 #size of the window
 SCREEN_WIDTH = 80
@@ -64,13 +65,23 @@ class Tile: #a tile of the map and its properties
 		self.explored = False
 
 class Object: #generic object: player, monster, item. etc
-	def __init__(self,x,y,char, name, color, blocks=False):
+	global distance
+
+	def __init__(self,x,y,char, name, color, blocks=False, fighter=None, ai=None):
 		self.name = name
 		self.blocks = blocks
 		self.x = x
 		self.y = y
 		self.char = char
 		self.color = color
+
+		self.fighter = fighter #let fighter know who owns it
+		if self.fighter:
+			self.fighter.owner = self
+
+		self.ai = ai # let ai know who owns it
+		if self.ai:
+			self.ai.owner = self
 
 	def move(self,dx,dy): #move by given amount
 		if not is_blocked(self.x + dx, self.y + dy):
@@ -86,7 +97,50 @@ class Object: #generic object: player, monster, item. etc
 
 	def clear(self): #erase the char that represents this object
 		libtcod.console_put_char(con,self.x,self.y,' ',libtcod.BKGND_NONE)
-		
+
+	def move_towards(self, target_x, target_y):
+		#vector from this object to the targetm and distance
+		dx = target_x - self.x
+		dy = target_y - self.y
+		distance = math.sqrt(dx ** 2 + dy ** 2)
+
+		#normalkize to length 1(preserve direction), then round it
+		#and convert it to int so the movement is restricted to the map grid
+		dx = int(round(dx/distance))
+		dy = int(round(dy/distance))
+		self.move(dx,dy)
+
+	def distance_to(self, other):
+		#return the distance to another object
+		dx = other.x - self.x
+		dy = other.y - self.y
+		return math.sqrt(dx ** 2 + dy ** 2)
+
+
+class Fighter:
+	#combat properties (monster, npc, player, etc)
+	def __init__(self, hp, defense, power):
+		self.max_hp = hp
+		self.hp = hp
+		self.defense = defense
+		self.power = power
+
+class BasicMonster:
+	#AI for basic monster
+	def take_turn(self):
+		#if monster can see you if you see it
+		monster = self.owner
+		if libtcod.map_is_in_fov(fov_map, monster.x, monster.y):
+
+			#move towards player if far away
+			if monster.distance_to(player) >= 2:
+				monster.move_towards(player.x, player.y)
+
+			#close enough, attack! (if player is still alive)
+		elif player.fighter.hp > 0:
+			print 'The attack of ' + monster.name + 'was unnaffective!'
+
+
 #FUNCTIONS
 def create_h_tunnel(x1,x2,y): #horizontal tunnel
 	global map
@@ -195,9 +249,9 @@ def render_all():
 							libtcod.console_set_char_background(con,x,y,color_dark_ground,libtcod.BKGND_SET)
 				else: #in fov
 					if wall:
-						libtcod.console_set_char_background(con,x,y,color_light_wall,libtcod.BKGND_SET)
+						libtcod.console_set_char_background(con,x,y,libtcod.pink,libtcod.BKGND_SET)
 					else:
-						libtcod.console_set_char_background(con,x,y,color_light_ground,libtcod.BKGND_SET)
+						libtcod.console_set_char_background(con,x,y,libtcod.fuchsia,libtcod.BKGND_SET)
 					map[x][y].explored = True
 	#draw all objects in the list
 	for object in objects:
@@ -270,13 +324,23 @@ def place_objects(room):
 
 		if dice < 75: #75% chance of a centaur
 			#create centaur
-			monster = Object(x, y, 'h', 'centaur', libtcod.dark_sepia, blocks=True)
+			fighter_component = Fighter(hp=10, defense=0, power=3)
+			ai_component = BasicMonster()
+
+			monster = Object(x, y, 'h', 'centaur', libtcod.dark_sepia, blocks=True, fighter=fighter_component, ai=ai_component)
+
 		elif dice < 80: #5% chance of a CTHULU
 			#creat cthulu
-			monster = Object(x, y, 'C', 'CTHULU', libtcod.dark_green, blocks=True)
+			fighter_component = Fighter(hp=100, defense=10, power=10)
+			ai_component = BasicMonster()
+
+			monster = Object(x, y, 'C', 'CTHULU', libtcod.dark_green, blocks=True, fighter=fighter_component, ai=ai_component)
 		else:
-			#create Jogoth
-			monster = Object(x, y, 'J', "Jogoth", libtcod.light_cyan, blocks=True)
+			#create evil unicorn
+			fighter_component = Fighter(hp=25, defense=2, power=5)
+			ai_component = BasicMonster()
+
+			monster = Object(x, y, '1', "Evil Unicorn", libtcod.light_azure, blocks=True, fighter=fighter_component, ai=ai_component)
 
 		#only place if tile in not blocked
 		if not is_blocked(x, y):
@@ -329,7 +393,8 @@ libtcod.sys_set_fps(LIMIT_FPS)
 con = libtcod.console_new(SCREEN_WIDTH,SCREEN_HEIGHT)
 
 #create object representing the player
-player = Object(0, 0, '@', 'player', libtcod.white, blocks=True)
+fighter_component = Fighter(hp=30, defense=2, power=5)
+player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
 
 #list of objects with those two
 objects = [player]
@@ -368,5 +433,5 @@ while not libtcod.console_is_window_closed():
 	#monsters take their turn
 	if game_state == 'playing' and player_action != 'didnt-take-turn':
 		for object in objects:
-			if object != player:
-				print 'The ' + object.name + ' growls!'
+			if object.ai:
+				object.ai.take_turn()
