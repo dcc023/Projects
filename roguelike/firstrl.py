@@ -34,6 +34,10 @@ FOV_ALGO = 0 #default
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
+#sizes and coordinates relevant for GUI
+BAR_WIDTH = 20
+PANEL_HEIGHT = 7
+PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
 
 #CLASSES
 class Rect: #a rectangle on the map, used to characterize a room
@@ -116,14 +120,41 @@ class Object: #generic object: player, monster, item. etc
 		dy = other.y - self.y
 		return math.sqrt(dx ** 2 + dy ** 2)
 
+	def send_to_back(self):
+		#make these drawn before anything else, move to front of objects list
+		global objects
+		objects.remove(self)
+		objects.insert(0, self)
 
 class Fighter:
 	#combat properties (monster, npc, player, etc)
-	def __init__(self, hp, defense, power):
+	def __init__(self, hp, defense, power, death_function=None):
+		self.death_function = death_function
 		self.max_hp = hp
 		self.hp = hp
 		self.defense = defense
 		self.power = power
+
+	def take_damage(self, damage):
+		#apply damage
+		if damage > 0:
+			self.hp -= damage
+
+		if self.hp <= 0:
+			function = self.death_function
+			if function is not None:
+				function(self.owner)
+
+	def attack(self, target):
+		#attack formula
+		damage = self.power - target.fighter.defense
+
+		if damage > 0:
+			#target takes damage
+			print self.owner.name.capitalize() + ' attacks' + target.name + ' for ' + str(damage)
+			target.fighter.take_damage(damage)
+		else:
+			print self.owner.name.capitalize() + ' misses' + target.name
 
 class BasicMonster:
 	#AI for basic monster
@@ -137,8 +168,8 @@ class BasicMonster:
 				monster.move_towards(player.x, player.y)
 
 			#close enough, attack! (if player is still alive)
-		elif player.fighter.hp > 0:
-			print 'The attack of ' + monster.name + 'was unnaffective!'
+			elif player.fighter.hp > 0:
+				monster.fighter.attack(player)
 
 
 #FUNCTIONS
@@ -219,6 +250,11 @@ def make_map():
 					create_v_tunnel(prev_y, new_y, prev_x)
 					create_h_tunnel(prev_x, new_x, new_y)
 
+				else:
+					#vertically then horizontally
+					create_v_tunnel(prev_y, new_y, prev_x)
+					create_h_tunnel(prev_x, new_x, new_y)
+
 			#add some content to rooms, ie monsters
 			place_objects(new_room)
 
@@ -255,12 +291,25 @@ def render_all():
 					map[x][y].explored = True
 	#draw all objects in the list
 	for object in objects:
-		object.draw()
+		if object != player:
+			object.draw()
+	player.draw()
 
 	#blit the contents of "con" to the root console
-	libtcod.console_blit(con,0,0,SCREEN_WIDTH,SCREEN_HEIGHT,0,0,0)
+	libtcod.console_blit(con, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, 0, 0)
+
+	#prepare to render the GUI panel
+	libtcod.console_set_default_background(panel, libtcod.black)
+	libtcod.console_clear(panel)
+
+	#show player stats
+	render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, libtcod.light_red, libtcod.darker_red)
+
+	#blit the contents of "panel" to the root console
+	libtcod.console_blit(panel,0,0,SCREEN_WIDTH,PANEL_HEIGHT,0,0,PANEL_Y)
 
 	
+
 def handle_keys():
 	global fov_recompute
 	key = libtcod.console_check_for_keypress(True)
@@ -324,20 +373,20 @@ def place_objects(room):
 
 		if dice < 75: #75% chance of a centaur
 			#create centaur
-			fighter_component = Fighter(hp=10, defense=0, power=3)
+			fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, 'h', 'centaur', libtcod.dark_sepia, blocks=True, fighter=fighter_component, ai=ai_component)
 
 		elif dice < 80: #5% chance of a CTHULU
 			#creat cthulu
-			fighter_component = Fighter(hp=100, defense=10, power=10)
+			fighter_component = Fighter(hp=100, defense=10, power=10, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, 'C', 'CTHULU', libtcod.dark_green, blocks=True, fighter=fighter_component, ai=ai_component)
 		else:
 			#create evil unicorn
-			fighter_component = Fighter(hp=25, defense=2, power=5)
+			fighter_component = Fighter(hp=25, defense=2, power=5, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, '1', "Evil Unicorn", libtcod.light_azure, blocks=True, fighter=fighter_component, ai=ai_component)
@@ -368,17 +417,54 @@ def player_move_or_attack(dx, dy):
 	#try to find an attackable object there
 	target = None
 	for object in objects:
-		if object.x == x and object.y == y:
+		if object.fighter and object.x == x and object.y == y:
 			target = object
 			break
 
 	#attack target if found, otherwise, move along
 	if target is not None:
-		print 'The ' + target.name + ' gets hit! For 0 damage..'
+		player.fighter.attack(target)
 	else:
 		player.move(dx, dy)
 		fov_recompute = True
 
+def player_death(player):
+	#game ogre
+	global game_state
+	print 'GAME OGRE'
+	game_state = 'dead'
+
+	#transform player into corpse
+	player.char = '%'
+	player.color = libtcod.render
+
+def monster_death(monster):
+	#tranform into corpse and make it unblock
+	print monster.name.capitalize() + ' is dead!'
+	monster.char = '%'
+	monster.color = libtcod.red
+	monster. blocks = False
+	monster.fighter = None
+	monster.ai = None
+	monster.name = 'corpse of ' + monster.name
+	monster.send_to_back()
+
+def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
+	#render a bar (HP, exp, etc), first calc width of bar
+	bar_width = int(float(value) / maximum * total_width)
+
+	#render the background first
+	libtcod.console_set_default_background(panel, back_color)
+	libtcod.console_rect(panel, x, y, total_width, 1, False, libtcod.BKGND_SCREEN)
+
+	#render the top of the bar
+	libtcod.console_set_default_background(panel, bar_color)
+	if bar_width > 0:
+		libtcod.console_rect(panel, x, y, bar_width, 1, False, libtcod.BKGND_SCREEN)
+
+	#text with values
+	libtcod.console_set_default_foreground(panel, libtcod.white)
+	libtcod.console_print_ex(panel, x + total_width/2, y, libtcod.BKGND_NONE, libtcod.CENTER, name + ': ' + '/' + str(maximum))
 
 #################################################
 #Init and Game Loop
@@ -388,12 +474,14 @@ def player_move_or_attack(dx, dy):
 libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD)
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
 libtcod.sys_set_fps(LIMIT_FPS)
-
 #new off-screen console
 con = libtcod.console_new(SCREEN_WIDTH,SCREEN_HEIGHT)
 
+#GUI
+panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
 #create object representing the player
-fighter_component = Fighter(hp=30, defense=2, power=5)
+fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
 
 #list of objects with those two
@@ -411,6 +499,7 @@ fov_recompute = True
 
 game_state = 'playing'
 player_action = None
+
 
 
 #Game loop		
