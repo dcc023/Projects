@@ -1,5 +1,6 @@
 import libtcodpy as libtcod
 import math
+import textwrap
 
 #size of the window
 SCREEN_WIDTH = 80
@@ -7,7 +8,7 @@ SCREEN_HEIGHT = 50
 
 #map size
 MAP_WIDTH = 80
-MAP_HEIGHT = 45
+MAP_HEIGHT = 43
 
 #maximum frames-per-second
 LIMIT_FPS = 15
@@ -28,6 +29,7 @@ ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 MAX_ROOM_MONSTERS = 3
+MAX_ROOM_ITEMS = 2
 
 #field of view
 FOV_ALGO = 0 #default
@@ -35,9 +37,14 @@ FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
 #sizes and coordinates relevant for GUI
-BAR_WIDTH = 20
+BAR_WIDTH = 25
 PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+
+#message gui
+MSG_X = BAR_WIDTH + 2
+MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
+MSG_HEIGHT = PANEL_HEIGHT - 1
 
 #CLASSES
 class Rect: #a rectangle on the map, used to characterize a room
@@ -71,7 +78,7 @@ class Tile: #a tile of the map and its properties
 class Object: #generic object: player, monster, item. etc
 	global distance
 
-	def __init__(self,x,y,char, name, color, blocks=False, fighter=None, ai=None):
+	def __init__(self,x,y,char, name, color, blocks=False, fighter=None, ai=None, item=None):
 		self.name = name
 		self.blocks = blocks
 		self.x = x
@@ -86,6 +93,10 @@ class Object: #generic object: player, monster, item. etc
 		self.ai = ai # let ai know who owns it
 		if self.ai:
 			self.ai.owner = self
+
+		self.item = item #let item know who owns it
+		if self.item:
+			self.item.owner = self
 
 	def move(self,dx,dy): #move by given amount
 		if not is_blocked(self.x + dx, self.y + dy):
@@ -151,10 +162,23 @@ class Fighter:
 
 		if damage > 0:
 			#target takes damage
-			print self.owner.name.capitalize() + ' attacks' + target.name + ' for ' + str(damage)
+			message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage), libtcod.light_red)
 			target.fighter.take_damage(damage)
 		else:
-			print self.owner.name.capitalize() + ' misses' + target.name
+			message(self.owner.name.capitalize() + ' misses ' + target.name, libtcod.white)
+
+	def use_item(self, target):
+		#item
+		if target.item.stat == 'health':
+			if self.hp < self.max_hp:
+				message(self.owner.name.capitalize() + ' uses ' + target.name + ' for ' + str(target.item.value) + ' health')
+				self.hp += target.item.value
+				if self.hp > self.max_hp:
+					self.hp = self.max_hp
+
+
+		objects.remove(target)
+
 
 class BasicMonster:
 	#AI for basic monster
@@ -170,6 +194,15 @@ class BasicMonster:
 			#close enough, attack! (if player is still alive)
 			elif player.fighter.hp > 0:
 				monster.fighter.attack(player)
+
+class Item:
+	#item properties(value, stat affected)
+	def __init__(self, value, stat, info):
+		self.value = value
+		self.stat = stat
+		self.info = info
+
+
 
 
 #FUNCTIONS
@@ -302,6 +335,13 @@ def render_all():
 	libtcod.console_set_default_background(panel, libtcod.black)
 	libtcod.console_clear(panel)
 
+	#print the messages one line at a time
+	y = 1
+	for (line, color) in game_msgs:
+		libtcod.console_set_default_foreground(panel, color)
+		libtcod.console_print_ex(panel, MSG_X, y, libtcod.BKGND_NONE, libtcod.LEFT, line)
+		y += 1
+
 	#show player stats
 	render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, libtcod.light_red, libtcod.darker_red)
 
@@ -364,6 +404,9 @@ def place_objects(room):
 	#random number of monsters
 	num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
 
+	#random number of items
+	num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
+
 	for i in range(num_monsters):
 		#choose random spot for monster
 		x = libtcod.random_get_int(0, room.x1, room.x2)
@@ -395,6 +438,23 @@ def place_objects(room):
 		if not is_blocked(x, y):
 			objects.append(monster)	
 
+	for i in range(num_items):
+		#choose random spot for items
+		x = libtcod.random_get_int(0, room.x1, room.x2)
+		y = libtcod.random_get_int(0, room.y1, room.y2)
+
+		dice = libtcod.random_get_int(0, 0, 100)
+
+		if dice < 50:
+			#create health potion
+			item_component = Item(10, 'health', 'used to recover 10 health')
+
+			item = Object(x, y, 'U', 'Health Potion', libtcod.light_green, blocks=True, item=item_component)
+
+			#only place if not blocked
+			if not is_blocked(x,y):
+				objects.append(item)
+
 def is_blocked(x, y):
 	#test map tile
 	if map[x][y].blocked:
@@ -420,18 +480,25 @@ def player_move_or_attack(dx, dy):
 		if object.fighter and object.x == x and object.y == y:
 			target = object
 			break
+		elif object.item and object.x == x and object.y == y:
+			target = object
 
 	#attack target if found, otherwise, move along
 	if target is not None:
-		player.fighter.attack(target)
+		if target.item:
+			player.fighter.use_item(target)
+		else:
+			player.fighter.attack(target)
+
 	else:
 		player.move(dx, dy)
 		fov_recompute = True
 
+
 def player_death(player):
 	#game ogre
 	global game_state
-	print 'GAME OGRE'
+	message('GAME OGRE', libtcod.red)
 	game_state = 'dead'
 
 	#transform player into corpse
@@ -440,7 +507,7 @@ def player_death(player):
 
 def monster_death(monster):
 	#tranform into corpse and make it unblock
-	print monster.name.capitalize() + ' is dead!'
+	message(monster.name.capitalize() + ' is dead!', libtcod.blue)
 	monster.char = '%'
 	monster.color = libtcod.red
 	monster. blocks = False
@@ -464,7 +531,21 @@ def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
 
 	#text with values
 	libtcod.console_set_default_foreground(panel, libtcod.white)
-	libtcod.console_print_ex(panel, x + total_width/2, y, libtcod.BKGND_NONE, libtcod.CENTER, name + ': ' + '/' + str(maximum))
+	libtcod.console_print_ex(panel, x + total_width/2, y, libtcod.BKGND_NONE, libtcod.CENTER, name + ': ' + str(value) + '/' + str(maximum))
+
+def message(new_msg, color=libtcod.white):
+	#split message if necessary, among multiple lines
+	new_msg_lines = textwrap.wrap(new_msg, MSG_WIDTH)
+
+	for line in new_msg_lines:
+		#if the buffer is full, remove the first line to make room for new one
+		if len(game_msgs) == MSG_HEIGHT:
+			del game_msgs[0]
+
+		#add the new line as a tuple, with text and color
+		game_msgs.append((line, color))
+
+
 
 #################################################
 #Init and Game Loop
@@ -475,7 +556,7 @@ libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE | 
 libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
 libtcod.sys_set_fps(LIMIT_FPS)
 #new off-screen console
-con = libtcod.console_new(SCREEN_WIDTH,SCREEN_HEIGHT)
+con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 
 #GUI
 panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
@@ -486,6 +567,9 @@ player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter
 
 #list of objects with those two
 objects = [player]
+
+#create game messages and colors, starts empty
+game_msgs = []
 
 #generate map
 make_map()
@@ -501,6 +585,8 @@ game_state = 'playing'
 player_action = None
 
 
+#welcome message
+message('Blood for Blood, WHAT ARE THEY SELLING??!', libtcod.red)
 
 #Game loop		
 while not libtcod.console_is_window_closed():
