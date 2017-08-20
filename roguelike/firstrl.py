@@ -28,7 +28,7 @@ playery = SCREEN_HEIGHT/2
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
-MAX_ROOM_MONSTERS = 3
+MAX_ROOM_MONSTERS = 10
 MAX_ROOM_ITEMS = 2
 
 #field of view
@@ -146,12 +146,14 @@ class Fighter:
 		self.defense = defense
 		self.power = power
 
-	def take_damage(self, damage):
+	def take_damage(self, damage, attacker):
 		#apply damage
 		if damage > 0:
 			self.hp -= damage
 
 		if self.hp <= 0:
+			attacker.hp += 20
+			attacker.power += 5
 			function = self.death_function
 			if function is not None:
 				function(self.owner)
@@ -163,9 +165,12 @@ class Fighter:
 		if damage > 0:
 			#target takes damage
 			message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage), libtcod.light_red)
-			target.fighter.take_damage(damage)
+			target.fighter.take_damage(damage, self)
+			
 		else:
 			message(self.owner.name.capitalize() + ' misses ' + target.name, libtcod.white)
+
+
 
 	def use_item(self, target):
 		#item
@@ -345,6 +350,10 @@ def render_all():
 	#show player stats
 	render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, libtcod.light_red, libtcod.darker_red)
 
+	#display name of objects under the mouse
+	libtcod.console_set_default_foreground(panel, libtcod.light_grey)
+	libtcod.console_print_ex(panel, 1, 0, libtcod.BKGND_NONE, libtcod.LEFT, get_names_under_mouse())
+
 	#blit the contents of "panel" to the root console
 	libtcod.console_blit(panel,0,0,SCREEN_WIDTH,PANEL_HEIGHT,0,0,PANEL_Y)
 
@@ -352,7 +361,9 @@ def render_all():
 
 def handle_keys():
 	global fov_recompute
-	key = libtcod.console_check_for_keypress(True)
+	global key
+
+	#key = libtcod.console_check_for_keypress(True)
 	#key = libtcod.console_check_for_keypress() //for real time
 
 	if key.vk == libtcod.KEY_ENTER and key.lalt:
@@ -409,8 +420,8 @@ def place_objects(room):
 
 	for i in range(num_monsters):
 		#choose random spot for monster
-		x = libtcod.random_get_int(0, room.x1, room.x2)
-		y = libtcod.random_get_int(0, room.y1, room.y2)
+		x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+		y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
 		dice = libtcod.random_get_int(0, 0, 100)
 
@@ -436,12 +447,13 @@ def place_objects(room):
 
 		#only place if tile in not blocked
 		if not is_blocked(x, y):
-			objects.append(monster)	
+			objects.append(monster)
 
+	#items spawns
 	for i in range(num_items):
 		#choose random spot for items
-		x = libtcod.random_get_int(0, room.x1, room.x2)
-		y = libtcod.random_get_int(0, room.y1, room.y2)
+		x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+		y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
 		dice = libtcod.random_get_int(0, 0, 100)
 
@@ -503,7 +515,7 @@ def player_death(player):
 
 	#transform player into corpse
 	player.char = '%'
-	player.color = libtcod.render
+	player.color = libtcod.red
 
 def monster_death(monster):
 	#tranform into corpse and make it unblock
@@ -545,7 +557,18 @@ def message(new_msg, color=libtcod.white):
 		#add the new line as a tuple, with text and color
 		game_msgs.append((line, color))
 
+def get_names_under_mouse():
+	global mouse
 
+	#return a string with the name of all objects under the mouse
+	(x,y) = (mouse.cx, mouse.cy)
+
+	#create a list with names of all objects at the mouse's coordinates and in FOV
+	names = [obj.name for obj in objects
+		if obj.x == x and obj.y == y and libtcod.map_is_in_fov(fov_map, obj.x, obj.y)]
+
+	names = ', '.join(names) #join names
+	return names.capitalize()
 
 #################################################
 #Init and Game Loop
@@ -571,6 +594,9 @@ objects = [player]
 #create game messages and colors, starts empty
 game_msgs = []
 
+#player inventory
+inventory = []
+
 #generate map
 make_map()
 
@@ -588,9 +614,14 @@ player_action = None
 #welcome message
 message('Blood for Blood, WHAT ARE THEY SELLING??!', libtcod.red)
 
+mouse = libtcod.Mouse()
+key = libtcod.Key()
+
+
 #Game loop		
 while not libtcod.console_is_window_closed():
 
+	libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|libtcod.EVENT_MOUSE, key, mouse)
 	#render the screen
 	render_all()
 
