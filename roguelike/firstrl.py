@@ -28,8 +28,8 @@ playery = SCREEN_HEIGHT/2
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
-MAX_ROOM_MONSTERS = 10
-MAX_ROOM_ITEMS = 2
+MAX_ROOM_MONSTERS = 1
+MAX_ROOM_ITEMS = 3
 
 #field of view
 FOV_ALGO = 0 #default
@@ -40,11 +40,16 @@ TORCH_RADIUS = 10
 BAR_WIDTH = 25
 PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+INVENTORY_WIDTH = 50
 
 #message gui
 MSG_X = BAR_WIDTH + 2
 MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
 MSG_HEIGHT = PANEL_HEIGHT - 1
+
+#item constants
+LIGHTNING_RANGE = 5
+LIGHTNING_DAMAGE = 20
 
 #CLASSES
 class Rect: #a rectangle on the map, used to characterize a room
@@ -146,14 +151,12 @@ class Fighter:
 		self.defense = defense
 		self.power = power
 
-	def take_damage(self, damage, attacker):
+	def take_damage(self, damage):
 		#apply damage
 		if damage > 0:
 			self.hp -= damage
 
 		if self.hp <= 0:
-			attacker.hp += 20
-			attacker.power += 5
 			function = self.death_function
 			if function is not None:
 				function(self.owner)
@@ -165,24 +168,30 @@ class Fighter:
 		if damage > 0:
 			#target takes damage
 			message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage), libtcod.light_red)
-			target.fighter.take_damage(damage, self)
+			target.fighter.take_damage(damage)
 			
 		else:
 			message(self.owner.name.capitalize() + ' misses ' + target.name, libtcod.white)
 
 
 
-	def use_item(self, target):
+	def use_stat_item(self, target):
 		#item
-		if target.item.stat == 'health':
+		if target.stat == 'health':
 			if self.hp < self.max_hp:
-				message(self.owner.name.capitalize() + ' uses ' + target.name + ' for ' + str(target.item.value) + ' health')
-				self.hp += target.item.value
-				if self.hp > self.max_hp:
+				message(self.owner.name.capitalize() + ' uses ' + target.owner.name + ' for ' + str(target.value) + ' health')
+				self.hp += target.value
+				if self.hp > self.max_hp: #checks to not exceed max hp
 					self.hp = self.max_hp
+			else:
+				message('you already max health fam')
+				return 0
+
+		inventory.remove(target.owner)
 
 
-		objects.remove(target)
+
+		
 
 
 class BasicMonster:
@@ -202,10 +211,36 @@ class BasicMonster:
 
 class Item:
 	#item properties(value, stat affected)
-	def __init__(self, value, stat, info):
+	def __init__(self, value, stat, info, use_function=None):
 		self.value = value
 		self.stat = stat
 		self.info = info
+		self.use_function = use_function
+
+	def pick_up(self):
+		#add to inventory
+		if len(inventory) >= 26:
+			message('inventory is full', libtcod.red)
+		else:
+			inventory.append(self.owner)
+			objects.remove(self.owner)
+			message('you picked up a ' + self.owner.name, libtcod.green)
+
+	def use(self):
+		#checks if item is useless
+		if self.stat is None:
+			message('The ' + self.owner.name + 'has no effect')
+
+		#if non stat based item
+		elif self.stat == 'special':
+			if self.use_function() != 'cancel':
+				inventory.remove(self.owner)
+
+		#if nothing else, it is a stat item
+		else:
+			message('use item')
+			player.fighter.use_stat_item(self)
+			#inventory.remove(self.owner)
 
 
 
@@ -375,38 +410,36 @@ def handle_keys():
 
 	if game_state == 'playing':
 		#movement keys
-		if libtcod.console_is_key_pressed(libtcod.KEY_UP):
-			#diagonal checks!
-			if libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-				player_move_or_attack(1,-1)
-				
-			elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-				player_move_or_attack(-1,-1)
-				
-			else:
+		if key.vk == libtcod.KEY_UP:
 				player_move_or_attack(0,-1)
-				
 
-		elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-			#diagonal checks!
-			if libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-				player_move_or_attack(1,1)
-
-			elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-				player_move_or_attack(-1,1)
-				
-			else:
+		elif key.vk == libtcod.KEY_DOWN:
 				player_move_or_attack(0,1)
 				
-
-		elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
+		elif key.vk == libtcod.KEY_LEFT:
 			player_move_or_attack(-1,0)
 			
-
-		elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+		elif key.vk == libtcod.KEY_RIGHT:
 			player_move_or_attack(1,0)
 			
 		else:
+			#test for other keys
+			key_char = chr(key.c)
+
+			if key_char == 'f':
+				#pick up item
+				for object in objects: #look for item in player tile
+					if object.x == player.x and object.y == player.y and object.item:
+						object.item.pick_up()
+						break
+
+			if key_char == 'i':
+				#show inventory
+				message('inventest')
+				chosen_item = inventory_menu('Press the key next to the item you wish to use \n')
+				if chosen_item is not None:
+					chosen_item.use()
+
 			return 'didnt-take-turn'
 
 
@@ -434,7 +467,7 @@ def place_objects(room):
 
 		elif dice < 80: #5% chance of a CTHULU
 			#creat cthulu
-			fighter_component = Fighter(hp=100, defense=10, power=10, death_function=monster_death)
+			fighter_component = Fighter(hp=1000, defense=10, power=100, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, 'C', 'CTHULU', libtcod.dark_green, blocks=True, fighter=fighter_component, ai=ai_component)
@@ -461,11 +494,17 @@ def place_objects(room):
 			#create health potion
 			item_component = Item(10, 'health', 'used to recover 10 health')
 
-			item = Object(x, y, 'U', 'Health Potion', libtcod.light_green, blocks=True, item=item_component)
+			item = Object(x, y, 'U', 'Health Potion', libtcod.light_green, item=item_component)
+		else:
+			#create lightning bolt scroll 50% chance
+			item_component = Item(3, 'special', 'used to cast lightning bolts', use_function = cast_lightning)
 
-			#only place if not blocked
-			if not is_blocked(x,y):
-				objects.append(item)
+			item = Object(x, y, 'Z', 'Lightning Bolt Scroll', libtcod.yellow, item = item_component)
+
+		#only place if not blocked
+		if not is_blocked(x,y):
+			objects.append(item)
+			item.send_to_back()
 
 def is_blocked(x, y):
 	#test map tile
@@ -492,16 +531,11 @@ def player_move_or_attack(dx, dy):
 		if object.fighter and object.x == x and object.y == y:
 			target = object
 			break
-		elif object.item and object.x == x and object.y == y:
-			target = object
-
-	#attack target if found, otherwise, move along
+		
 	if target is not None:
-		if target.item:
-			player.fighter.use_item(target)
-		else:
-			player.fighter.attack(target)
+		player.fighter.attack(target)
 
+	#attack target if found, otherwise, move along		
 	else:
 		player.move(dx, dy)
 		fov_recompute = True
@@ -570,6 +604,83 @@ def get_names_under_mouse():
 	names = ', '.join(names) #join names
 	return names.capitalize()
 
+def menu(header, options, width):
+	if len(options) > 26: raise ValueError('cannot have a menu with more than 26 options')
+
+	#calculate total height for the header (after auto-wrap) and one line per option
+	header_height = libtcod.console_get_height_rect(con, 0, 0, width, SCREEN_HEIGHT, header)
+	height = len(options) + header_height
+
+	#create off screen console to rep menu's window
+	window = libtcod.console_new(width, height)
+
+	#print the header, with auto-wrap
+	libtcod.console_set_default_foreground(window, libtcod.white)
+	libtcod.console_print_rect_ex(window, 0, 0, width, height, libtcod.BKGND_NONE, libtcod.LEFT, header)
+
+	#print all the options
+	y = header_height
+	letter_index = ord('a')
+	for option_text in options:
+		text = '(' + chr(letter_index) + ') ' + option_text
+		libtcod.console_print_ex(window, 0, y, libtcod.BKGND_NONE, libtcod.LEFT, text)
+		y += 1
+		letter_index += 1
+
+	#blit the contents to root console
+	x = SCREEN_WIDTH/2 - width/2
+	y = SCREEN_HEIGHT/2 - height/2
+	libtcod.console_blit(window, 0, 0, width, height, 0, x, y, 1.0, 0.7)
+
+	#present console and wait for key press
+	libtcod.console_flush()
+	key = libtcod.console_wait_for_keypress(True)
+
+	#convert ascii to index of inventory items and return it
+	index = key.c - ord('a')
+	if index >= 0 and index < len(options): 
+		return index
+	return None
+
+def inventory_menu(header):
+	#show menu with each item from inventory as an option
+	if len(inventory) == 0:
+		options = ['Inventory is empty.']
+	else:
+		options = [item.name for item in inventory]
+
+	index = menu(header, options, INVENTORY_WIDTH)
+
+	#return chosen item
+	if index is None or len(inventory) == 0:
+		return None
+	return inventory[index].item
+
+def closest_monster(max_range):
+	#find closest enemy
+	closest_enemy = None
+	closest_dist = max_range + 1
+
+	for object in objects:
+		if object.fighter and not object == player and libtcod.map_is_in_fov(fov_map, object.x, object.y):
+			#calc distance between object and player
+			dist = player.distance_to(object)
+			if dist < closest_dist: #it's current closest
+				closest_enemy = object
+				closest_dist = dist
+
+	return closest_enemy
+
+def cast_lightning():
+	#find closest enemy, within range, and damage it
+	monster = closest_monster(LIGHTNING_RANGE)
+	if monster is None: #no enemies in range
+		message('No enemy in range', libtcod.red)
+		return 'cancel'
+
+	#shock'm
+	message('The lightning bolt strikes the ' + monster.name + ' with lightning for ' + str(LIGHTNING_DAMAGE) + ' damage!', libtcod.light_blue)
+	monster.fighter.take_damage(LIGHTNING_DAMAGE)
 #################################################
 #Init and Game Loop
 #################################################
@@ -585,7 +696,7 @@ con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
 #create object representing the player
-fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
+fighter_component = Fighter(hp=50, defense=2, power=5, death_function=player_death)
 player = Object(0, 0, '@', 'player', libtcod.white, blocks=True, fighter=fighter_component)
 
 #list of objects with those two
@@ -612,7 +723,7 @@ player_action = None
 
 
 #welcome message
-message('Blood for Blood, WHAT ARE THEY SELLING??!', libtcod.red)
+message('Blood for Blood', libtcod.red)
 
 mouse = libtcod.Mouse()
 key = libtcod.Key()
