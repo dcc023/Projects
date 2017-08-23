@@ -42,6 +42,7 @@ BAR_WIDTH = 25
 PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
 INVENTORY_WIDTH = 50
+LEVEL_SCREEN_WIDTH = 40
 
 #message gui
 MSG_X = BAR_WIDTH + 2
@@ -63,6 +64,10 @@ player_tile = 258
 scroll_tile = 261
 healingpotion_tile = 262
 stairsdown_tile = 265
+
+#xp and levels
+LEVEL_UP_BASE = 200
+LEVEL_UP_FACTOR = 150
 
 #################################################################
 #CLASSES
@@ -165,7 +170,7 @@ class Object: #generic object: player, monster, item. etc
 
 class Fighter:
 	#combat properties (monster, npc, player, etc)
-	def __init__(self, hp, defense, power, death_function=None):
+	def __init__(self, hp, defense, power, xp, death_function=None):
 		self.death_function = death_function
 		self.max_hp = hp
 		self.hp = hp
@@ -181,6 +186,8 @@ class Fighter:
 			function = self.death_function
 			if function is not None:
 				function(self.owner)
+				if self.owner != player: #player gains xp if monster is slain
+					player.fighter.xp += self.xp
 
 	def attack(self, target):
 		#attack formula
@@ -293,8 +300,10 @@ def new_game():
 
 	#create object representing the player
 	fighter_component = Fighter(hp=50, defense=2, power=5, death_function=player_death)
-	player = Object(0, 0, player_tile, 'player', libtcod.white, blocks=True, fighter=fighter_component)
+	player = Object(0, 0, player_tile, 'player', libtcod.white, blocks=True, xp=0, fighter=fighter_component)
+	player.level = 1
 	dungeon_level = 1
+
 	#generate map
 	make_map()
 	initialize_fov()
@@ -334,6 +343,7 @@ def play_game():
 		libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|libtcod.EVENT_MOUSE, key, mouse)
 		render_all()
 		libtcod.console_flush()
+		check_level_up()
 
 		#erase all objects of old locations
 		for object in objects:
@@ -528,7 +538,7 @@ def make_map():
 			rooms.append(new_room)
 			num_rooms += 1
 	#create stairs at the middle of the last room
-	stairs = Object(new_x, new_y,'<','stairs', libtcod.white)
+	stairs = Object(new_x, new_y,stairsdown_tile,'stairs', libtcod.white)
 	objects.append(stairs)
 	stairs.send_to_back()
 
@@ -663,20 +673,20 @@ def place_objects(room):
 
 		if dice < 75: #75% chance of a centaur
 			#create centaur
-			fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
+			fighter_component = Fighter(hp=10, defense=0, power=3, xp=100, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, 'h', 'centaur', libtcod.dark_sepia, blocks=True, fighter=fighter_component, ai=ai_component)
 
 		elif dice < 80: #5% chance of a CTHULU
 			#creat cthulu
-			fighter_component = Fighter(hp=1000, defense=10, power=100, death_function=monster_death)
+			fighter_component = Fighter(hp=50, defense=5, power=10, xp=1000, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, 'C', 'CTHULU', libtcod.dark_green, blocks=True, fighter=fighter_component, ai=ai_component)
 		else:
 			#create evil unicorn
-			fighter_component = Fighter(hp=25, defense=2, power=5, death_function=monster_death)
+			fighter_component = Fighter(hp=25, defense=2, power=5, xp=250, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, '1', "Evil Unicorn", libtcod.light_azure, blocks=True, fighter=fighter_component, ai=ai_component)
@@ -753,6 +763,26 @@ def player_move_or_attack(dx, dy):
 	else:
 		player.move(dx, dy)
 		fov_recompute = True
+
+def check_level_up():
+	#check if player xp is enough to level up
+	level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
+	if player.fighter.xp >= level_up_xp:
+		player.level += 1
+		player.fighter.xp -= level_up_xp
+		message('LEVEL UP! You are now level ' + str(player.level) + '!', libtcod.green)
+
+		choice = None
+		while choice == None:
+			choice = menu('Choose a stat to raise: \n', ['HP(+20)', 'ATTACK(+1)', 'DEFENSE(+1)'], LEVEL_SCREEN_WIDTH)
+
+		if choice == 0:
+			player.fighter.max_hp += 20
+			player.fighter.hp += 20
+		elif choice == 1:
+			player.fighter.power += 1
+		elif choice == 2:
+			player.fighter.defense += 1
 
 def player_death(player):
 	#game ogre
