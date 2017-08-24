@@ -43,6 +43,7 @@ PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
 INVENTORY_WIDTH = 50
 LEVEL_SCREEN_WIDTH = 40
+CHARACTER_SCREEN_WIDTH = 30
 
 #message gui
 MSG_X = BAR_WIDTH + 2
@@ -63,7 +64,9 @@ floor_tile = 257
 player_tile = 258
 scroll_tile = 261
 healingpotion_tile = 262
+sword_tile = 263
 stairsdown_tile = 265
+centaur_tile = 267
 
 #xp and levels
 LEVEL_UP_BASE = 200
@@ -105,7 +108,7 @@ class Tile: #a tile of the map and its properties
 #ASSET-BASED CLASSES
 class Object: #generic object: player, monster, item. etc
 
-	def __init__(self,x,y,char, name, color, blocks=False, fighter=None, ai=None, item=None):
+	def __init__(self,x,y,char, name, color, blocks=False, fighter=None, ai=None, item=None, equipment=None):
 		self.name = name
 		self.blocks = blocks
 		self.x = x
@@ -123,6 +126,13 @@ class Object: #generic object: player, monster, item. etc
 
 		self.item = item #let item know who owns it
 		if self.item:
+			self.item.owner = self
+
+		self.equipment = equipment
+		if self.equipment: #let equipment know who owns it
+			self.equipment.owner = self
+			#there is inherently an item component
+			self.item = Item()
 			self.item.owner = self
 
 	def move(self,dx,dy): #move by given amount
@@ -171,11 +181,13 @@ class Object: #generic object: player, monster, item. etc
 class Fighter:
 	#combat properties (monster, npc, player, etc)
 	def __init__(self, hp, defense, power, xp, death_function=None):
+		self.xp = xp
 		self.death_function = death_function
 		self.max_hp = hp
 		self.hp = hp
 		self.defense = defense
 		self.power = power
+		
 
 	def take_damage(self, damage):
 		#apply damage
@@ -250,7 +262,7 @@ class ConfusedMonster:
 
 class Item:
 	#item properties(value, stat affected)
-	def __init__(self, value, stat, info, use_function=None):
+	def __init__(self, value=None, stat=None, info=None, use_function=None):
 		self.value = value
 		self.stat = stat
 		self.info = info
@@ -266,6 +278,11 @@ class Item:
 			message('you picked up a ' + self.owner.name, libtcod.green)
 
 	def use(self):
+		#if object has equipment, use is able to equip or dequip
+		if self.owner.equipment:
+			self.owner.equipment.toggle_equip()
+			return
+
 		#checks if item is useless
 		if self.stat is None:
 			message('The ' + self.owner.name + 'has no effect')
@@ -289,6 +306,28 @@ class Item:
 		self.owner.y = player.y
 		message('You dropped a ' + self.owner.name, libtcod.yellow)
 
+class Equipment:
+	#a equippable object that will give player bonuses
+	def __init__(self, slot):
+		self.slot = slot
+		self.is_equipped = False
+
+	def toggle_equip(self): #equip and unequip
+		if self.is_equipped:
+			self.dequip()
+		else:
+			self.equip()
+
+	def equip(self): #equip object and notify player
+		self.is_equipped = True
+		message(str(self.owner.name) + 'is now equipped in slot ' + str(self.slot), libtcod.green )
+
+	def dequip(self):
+		if not self.is_equipped:
+			return
+		self.is_equipped = False
+		message(str(self.owner.name) + ' is uneqquiped from slot ' + str(self.slot), libtcod.yellow)
+
 
 #############################################
 #FUNCTIONS
@@ -299,8 +338,8 @@ def new_game():
 	global player, inventory, game_msgs, game_state, dungeon_level
 
 	#create object representing the player
-	fighter_component = Fighter(hp=50, defense=2, power=5, death_function=player_death)
-	player = Object(0, 0, player_tile, 'player', libtcod.white, blocks=True, xp=0, fighter=fighter_component)
+	fighter_component = Fighter(hp=50, defense=2, power=5, xp=0, death_function=player_death)
+	player = Object(0, 0, player_tile, 'player', libtcod.white, blocks=True, fighter=fighter_component)
 	player.level = 1
 	dungeon_level = 1
 
@@ -655,6 +694,13 @@ def handle_keys():
 				if chosen_item is not None:
 					chosen_item.drop()
 
+			if key_char == 'c':
+				#show character info screen
+				level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
+				msgbox('Character Info\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) + '\nExp to Level: '
+				 + str(level_up_xp) + '\nMax Health: ' + str(player.fighter.max_hp) + '\nAttack: ' + str(player.fighter.power) + '\nDefense: '
+				 + str(player.fighter.defense), CHARACTER_SCREEN_WIDTH)
+
 			return 'didnt-take-turn'
 
 def place_objects(room):
@@ -676,7 +722,7 @@ def place_objects(room):
 			fighter_component = Fighter(hp=10, defense=0, power=3, xp=100, death_function=monster_death)
 			ai_component = BasicMonster()
 
-			monster = Object(x, y, 'h', 'centaur', libtcod.dark_sepia, blocks=True, fighter=fighter_component, ai=ai_component)
+			monster = Object(x, y, centaur_tile, 'centaur', libtcod.dark_sepia, blocks=True, fighter=fighter_component, ai=ai_component)
 
 		elif dice < 80: #5% chance of a CTHULU
 			#creat cthulu
@@ -713,11 +759,16 @@ def place_objects(room):
 			item_component = Item(3, 'special', 'used to cast lightning bolts', use_function = cast_lightning)
 
 			item = Object(x, y, scroll_tile, 'Lightning Bolt Scroll', libtcod.yellow, item = item_component)
-		elif dice < 50 + 25:
+		elif dice < 50 + 10:
 			#create fireball spell, 25% chance
 			item_component = Item(1, 'special', 'used to cast explosive fireball, dealing aoe damage', use_function = cast_fireball)
 
 			item = Object(x, y, '#', 'Fireball spell', libtcod.orange, item = item_component)
+		elif dice < 60 + 25:
+			#spawn sword
+			equipment_component = Equipment(slot='right hand')
+
+			item = Object(x, y, sword_tile, 'sword', libtcod.sky, equipment = equipment_component)
 		else:
 			#creat confuse scroll
 			item_component = Item(1, 'special', 'used to confuse enemies', use_function = cast_confuse)
@@ -796,7 +847,7 @@ def player_death(player):
 
 def monster_death(monster):
 	#tranform into corpse and make it unblock
-	message(monster.name.capitalize() + ' is dead!', libtcod.blue)
+	message(monster.name.capitalize() + ' is dead! You earned ' + str(monster.fighter.xp) + 'exp!', libtcod.blue)
 	monster.char = '%'
 	monster.color = libtcod.red
 	monster. blocks = False
