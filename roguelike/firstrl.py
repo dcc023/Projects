@@ -72,9 +72,12 @@ centaur_tile = 267
 LEVEL_UP_BASE = 200
 LEVEL_UP_FACTOR = 150
 
+#properties
+
 #################################################################
 #CLASSES
 #################################################################
+
 
 #MAP-BASED CLASSES
 class Rect: #a rectangle on the map, used to characterize a room
@@ -183,11 +186,25 @@ class Fighter:
 	def __init__(self, hp, defense, power, xp, death_function=None):
 		self.xp = xp
 		self.death_function = death_function
-		self.max_hp = hp
+		self.base_max_hp = hp
 		self.hp = hp
-		self.defense = defense
-		self.power = power
+		self.base_defense = defense
+		self.base_power = power
 		
+	@property
+	def power(self):
+		bonus = sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
+		return self.base_power + bonus
+
+	@property
+	def defense(self):
+		bonus = sum(equipment.defense_bonus for equipment in get_all_equipped(self.owner))
+		return self.base_defense + bonus
+
+	@property
+	def max_hp(self):
+		bonus = sum(equipment.max_hp_bonus for equipment in get_all_equipped(self.owner))
+		return self.base_max_hp + bonus
 
 	def take_damage(self, damage):
 		#apply damage
@@ -276,6 +293,10 @@ class Item:
 			inventory.append(self.owner)
 			objects.remove(self.owner)
 			message('you picked up a ' + self.owner.name, libtcod.green)
+			#auto equip item is slot is empty
+			equipment = self.owner.equipment
+			if equipment and get_equipped_in_slot(equipment.slot) is None:
+				equipment.equip()
 
 	def use(self):
 		#if object has equipment, use is able to equip or dequip
@@ -308,9 +329,14 @@ class Item:
 
 class Equipment:
 	#a equippable object that will give player bonuses
-	def __init__(self, slot):
+	def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0):
+		self.power_bonus = power_bonus
+		self.defense_bonus = defense_bonus
+		self.max_hp_bonus = max_hp_bonus
 		self.slot = slot
 		self.is_equipped = False
+
+
 
 	def toggle_equip(self): #equip and unequip
 		if self.is_equipped:
@@ -319,6 +345,11 @@ class Equipment:
 			self.equip()
 
 	def equip(self): #equip object and notify player
+		#if the slot is occupied, dequip old item before equipping new
+		old_equipment = get_equipped_in_slot(self.slot)
+		if old_equipment is not None:
+			old_equipment.dequip()
+
 		self.is_equipped = True
 		message(str(self.owner.name) + 'is now equipped in slot ' + str(self.slot), libtcod.green )
 
@@ -766,7 +797,7 @@ def place_objects(room):
 			item = Object(x, y, '#', 'Fireball spell', libtcod.orange, item = item_component)
 		elif dice < 60 + 25:
 			#spawn sword
-			equipment_component = Equipment(slot='right hand')
+			equipment_component = Equipment(slot='right hand', power_bonus = 3)
 
 			item = Object(x, y, sword_tile, 'sword', libtcod.sky, equipment = equipment_component)
 		else:
@@ -828,12 +859,18 @@ def check_level_up():
 			choice = menu('Choose a stat to raise: \n', ['HP(+20)', 'ATTACK(+1)', 'DEFENSE(+1)'], LEVEL_SCREEN_WIDTH)
 
 		if choice == 0:
-			player.fighter.max_hp += 20
+			player.fighter.base_max_hp += 20
 			player.fighter.hp += 20
 		elif choice == 1:
-			player.fighter.power += 1
+			player.fighter.base_power += 1
 		elif choice == 2:
-			player.fighter.defense += 1
+			player.fighter.base_defense += 1
+
+def get_equipped_in_slot(slot):
+	for obj in inventory:
+		if obj.equipment and obj.equipment.slot == slot and obj.equipment.is_equipped:
+			return obj.equipment
+	return None
 
 def player_death(player):
 	#game ogre
@@ -947,7 +984,13 @@ def inventory_menu(header):
 	if len(inventory) == 0:
 		options = ['Inventory is empty.']
 	else:
-		options = [item.name for item in inventory]
+		options = []
+		for item in inventory:
+			text = item.name
+			#show additional information, if its equipped
+			if item.equipment and item.equipment.is_equipped:
+				text = text + ' (on ' + item.equipment.slot + ')'
+			options.append(text)
 
 	index = menu(header, options, INVENTORY_WIDTH)
 
@@ -955,6 +998,17 @@ def inventory_menu(header):
 	if index is None or len(inventory) == 0:
 		return None
 	return inventory[index].item
+
+def get_all_equipped(obj): #return list of all equipped items
+	if obj == player:
+		equipped_list = []
+		for item in inventory:
+			if item.equipment and item.equipment.is_equipped:
+				equipped_list.append(item.equipment)
+		return equipped_list
+	else:
+		return [] #other objects have no equip
+
 
 #COMBAT-BASED FUNCTIONS
 def closest_monster(max_range):
