@@ -351,7 +351,7 @@ class Equipment:
 			old_equipment.dequip()
 
 		self.is_equipped = True
-		message(str(self.owner.name) + 'is now equipped in slot ' + str(self.slot), libtcod.green )
+		message(str(self.owner.name) + ' is now equipped in slot ' + str(self.slot), libtcod.green )
 
 	def dequip(self):
 		if not self.is_equipped:
@@ -512,6 +512,27 @@ def load_custom_font():
 	for y in range(5,6):
 		libtcod.console_map_ascii_codes_to_font(a, 32, 0, y)
 		a += 32
+
+def random_choice_index(chances): #choose one option from list, return index
+	dice = libtcod.random_get_int(0, 1, sum(chances)) #random number from 1 to sum of chances
+
+	#go through all chances, keeping the sum
+	running_sum = 0
+	choice = 0
+	for w in chances:
+		running_sum += w
+
+		#check if dice landed in part that correspond with choice
+		if dice <= running_sum:
+			return choice
+		choice += 1
+
+def random_choice(chances_dict):
+	#choose one option from dictionary of chances, return key
+	chances = chances_dict.values()
+	strings = chances_dict.keys()
+
+	return strings[random_choice_index(chances)]
 
 
 
@@ -746,16 +767,17 @@ def place_objects(room):
 		x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
 		y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-		dice = libtcod.random_get_int(0, 0, 100)
+		monster_chances = {'centaur':75, 'cthulu':5, 'evilunicorn':25}
+		choice = random_choice(monster_chances)
 
-		if dice < 75: #75% chance of a centaur
+		if choice == 'centaur': #75% chance of a centaur
 			#create centaur
 			fighter_component = Fighter(hp=10, defense=0, power=3, xp=100, death_function=monster_death)
 			ai_component = BasicMonster()
 
 			monster = Object(x, y, centaur_tile, 'centaur', libtcod.dark_sepia, blocks=True, fighter=fighter_component, ai=ai_component)
 
-		elif dice < 80: #5% chance of a CTHULU
+		elif choice == 'cthulu': #5% chance of a CTHULU
 			#creat cthulu
 			fighter_component = Fighter(hp=50, defense=5, power=10, xp=1000, death_function=monster_death)
 			ai_component = BasicMonster()
@@ -778,24 +800,25 @@ def place_objects(room):
 		x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
 		y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-		dice = libtcod.random_get_int(0, 0, 100)
+		item_chances = {'heal':50, 'lightning':15, 'fireball':15, 'sword':10, 'confuse':25}
+		choice = random_choice(item_chances)
 
-		if dice < 25:
+		if choice == 'heal':
 			#create health potion
 			item_component = Item(10, 'health', 'used to recover 10 health')
 
 			item = Object(x, y, healingpotion_tile, 'Health Potion', libtcod.light_green, item=item_component)
-		elif dice < 25 + 25:
+		elif choice == 'lightning':
 			#create lightning bolt scroll 25% chance
 			item_component = Item(3, 'special', 'used to cast lightning bolts', use_function = cast_lightning)
 
 			item = Object(x, y, scroll_tile, 'Lightning Bolt Scroll', libtcod.yellow, item = item_component)
-		elif dice < 50 + 10:
+		elif choice == 'fireball':
 			#create fireball spell, 25% chance
 			item_component = Item(1, 'special', 'used to cast explosive fireball, dealing aoe damage', use_function = cast_fireball)
 
 			item = Object(x, y, '#', 'Fireball spell', libtcod.orange, item = item_component)
-		elif dice < 60 + 25:
+		elif choice == 'sword':
 			#spawn sword
 			equipment_component = Equipment(slot='right hand', power_bonus = 3)
 
@@ -1099,7 +1122,7 @@ def cast_fireball():
 #INITIALIZATION
 #console setup
 libtcod.console_set_custom_font('TiledFont.png', libtcod.FONT_TYPE_GREYSCALE | libtcod.FONT_LAYOUT_TCOD,32,10)
-libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'python/libtcod tutorial', False)
+libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'Blood for Blood', False)
 libtcod.sys_set_fps(LIMIT_FPS)
 #new off-screen console
 con = libtcod.console_new(MAP_WIDTH, MAP_HEIGHT)
