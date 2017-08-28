@@ -65,6 +65,7 @@ player_tile = 258
 scroll_tile = 261
 healingpotion_tile = 262
 sword_tile = 263
+shield_tile = 264
 stairsdown_tile = 265
 centaur_tile = 267
 
@@ -241,10 +242,11 @@ class Fighter:
 				if self.hp > self.max_hp: #checks to not exceed max hp
 					self.hp = self.max_hp
 			else:
-				message('you already max health fam')
+				message('you already max fam')
 				return 0
-
-		inventory.remove(target.owner)
+		target.amount -= 1
+		if target.amount <= 0: #if amount is less than 0, remove from inventory
+			inventory.remove(target.owner)
 
 
 class BasicMonster:
@@ -279,10 +281,11 @@ class ConfusedMonster:
 
 class Item:
 	#item properties(value, stat affected)
-	def __init__(self, value=None, stat=None, info=None, use_function=None):
+	def __init__(self, value=None, stat=None, info=None, amount=0, use_function=None):
 		self.value = value
 		self.stat = stat
 		self.info = info
+		self.amount = amount
 		self.use_function = use_function
 
 	def pick_up(self):
@@ -290,9 +293,17 @@ class Item:
 		if len(inventory) >= 26:
 			message('inventory is full', libtcod.red)
 		else:
+			message('you picked up a ' + self.owner.name, libtcod.green)
+
 			inventory.append(self.owner)
 			objects.remove(self.owner)
-			message('you picked up a ' + self.owner.name, libtcod.green)
+			for item in inventory: #comparing the new item to the previous items for a matching names
+				if item.name == self.owner.name:
+					if item.item.amount >= 1: #if the item already exists once, then rid of it
+						inventory.pop()
+					item.item.amount += 1	#increment the amount of a item instead of adding a duplicate to the inventory
+			
+			
 			#auto equip item is slot is empty
 			equipment = self.owner.equipment
 			if equipment and get_equipped_in_slot(equipment.slot) is None:
@@ -311,18 +322,21 @@ class Item:
 		#if non stat based item
 		elif self.stat == 'special':
 			if self.use_function() != 'cancel':
-				inventory.remove(self.owner)
+				self.amount -= 1 #subtract from item amount 
+				if self.amount <= 0: #check whether to remove it if lower than or equal to 0
+					inventory.remove(self.owner)
 
 		#if nothing else, it is a stat item
 		else:
 			message('use item')
 			player.fighter.use_stat_item(self)
-			#inventory.remove(self.owner)
 
 	def drop(self):
 		#add to the map and remove from the player's inventory. also place at players tile
 		objects.append(self.owner)
-		inventory.remove(self.owner)
+		self.amount -= 1
+		if self.amount <= 0:
+			inventory.remove(self.owner)
 		self.owner.x = player.x
 		self.owner.y = player.y
 		message('You dropped a ' + self.owner.name, libtcod.yellow)
@@ -800,7 +814,7 @@ def place_objects(room):
 		x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
 		y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-		item_chances = {'heal':50, 'lightning':15, 'fireball':15, 'sword':10, 'confuse':25}
+		item_chances = {'heal':50, 'lightning':15, 'fireball':15, 'sword':10, 'confuse':25, 'shield':10}
 		choice = random_choice(item_chances)
 
 		if choice == 'heal':
@@ -823,12 +837,16 @@ def place_objects(room):
 			equipment_component = Equipment(slot='right hand', power_bonus = 3)
 
 			item = Object(x, y, sword_tile, 'sword', libtcod.sky, equipment = equipment_component)
-		else:
+		elif choice == 'confuse':
 			#creat confuse scroll
 			item_component = Item(1, 'special', 'used to confuse enemies', use_function = cast_confuse)
 
 			item = Object(x, y, scroll_tile, 'Confuse Scroll', libtcod.purple, item=item_component)
+		elif choice == 'shield':
+			#spawn shield
+			equipment_component = Equipment(slot='left hand', defense_bonus = 3)
 
+			item = Object(x, y, shield_tile, 'shield', libtcod.sky, equipment = equipment_component)
 		#only place if not blocked
 		if not is_blocked(x,y):
 			objects.append(item)
@@ -1009,11 +1027,17 @@ def inventory_menu(header):
 	else:
 		options = []
 		for item in inventory:
+
 			text = item.name
+
 			#show additional information, if its equipped
 			if item.equipment and item.equipment.is_equipped:
 				text = text + ' (on ' + item.equipment.slot + ')'
-			options.append(text)
+
+			if item.item.amount > 1:
+				text = text + ' x' + str(item.item.amount)
+
+			options.append(text)	
 
 	index = menu(header, options, INVENTORY_WIDTH)
 
