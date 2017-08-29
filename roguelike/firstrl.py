@@ -43,7 +43,8 @@ PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
 INVENTORY_WIDTH = 50
 LEVEL_SCREEN_WIDTH = 40
-CHARACTER_SCREEN_WIDTH = 30
+CHARACTER_SCREEN_WIDTH = 50
+CHARACTER_SCREEN_HEIGHT = 70
 
 #message gui
 MSG_X = BAR_WIDTH + 2
@@ -68,6 +69,7 @@ sword_tile = 263
 shield_tile = 264
 stairsdown_tile = 265
 centaur_tile = 267
+empty_tile = 268
 
 #xp and levels
 LEVEL_UP_BASE = 200
@@ -749,7 +751,6 @@ def handle_keys():
 
 			if key_char == 'i':
 				#show inventory
-				message('inventest')
 				chosen_item = inventory_menu('Press the key next to the item you wish to use \n')
 				if chosen_item is not None:
 					chosen_item.use()
@@ -762,10 +763,7 @@ def handle_keys():
 
 			if key_char == 'c':
 				#show character info screen
-				level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
-				msgbox('Character Info\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) + '\nExp to Level: '
-				 + str(level_up_xp) + '\nMax Health: ' + str(player.fighter.max_hp) + '\nAttack: ' + str(player.fighter.power) + '\nDefense: '
-				 + str(player.fighter.defense), CHARACTER_SCREEN_WIDTH)
+				character_menu()
 
 			return 'didnt-take-turn'
 
@@ -1046,6 +1044,60 @@ def inventory_menu(header):
 		return None
 	return inventory[index].item
 
+def character_menu(): #shows equipped items and currents stats
+	#level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
+	#msgbox('Character Info\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) + '\nExp to Level: '
+	# + str(level_up_xp) + '\nMax Health: ' + str(player.fighter.max_hp) + '\nAttack: ' + str(player.fighter.power) + '\nDefense: '
+	# + str(player.fighter.defense), CHARACTER_SCREEN_WIDTH)
+
+	#create off screen console to rep menu's window
+	window = libtcod.console_new(CHARACTER_SCREEN_WIDTH, CHARACTER_SCREEN_HEIGHT)
+
+	#print the header, with auto-wrap
+	libtcod.console_set_default_foreground(window, libtcod.white)
+	libtcod.console_print_rect_ex(window, 0, 15, CHARACTER_SCREEN_WIDTH, CHARACTER_SCREEN_HEIGHT, libtcod.BKGND_NONE, libtcod.LEFT, 'Character Menu')
+
+	#PUT THE CONTENTS ON THE WINDOW!!
+	#character stats section
+	level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
+	text = 'Character Stats\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) + '\nExp to Level: ' + str(level_up_xp) + '\nMax Health: ' + str(player.fighter.max_hp) + '\nAttack: ' + str(player.fighter.power) + '\nDefense: '+ str(player.fighter.defense)
+
+	libtcod.console_print_ex(window, 0, 20, libtcod.BKGND_SCREEN, libtcod.LEFT, text)
+
+	#equipment section
+	libtcod.console_print_ex(window, 35, 20, libtcod.BKGND_SCREEN, libtcod.RIGHT, 'Equipment') #title
+
+	head_item = get_equipped_in_slot('helmet')
+	chest_item = get_equipped_in_slot('chest')
+	leg_item = get_equipped_in_slot('pants')
+	lhand_item = get_equipped_in_slot('left hand')
+	rhand_item = get_equipped_in_slot('right hand')
+
+	equip_slots = [head_item, chest_item, leg_item, lhand_item, rhand_item] #array of equipment slots
+
+	for slot in equip_slots: #running through every slot to check if empty or contains item
+		if slot == None: #if none, set to empty_tile to print later
+			slot = empty_tile
+		else: 
+			slot = slot.owner.char #set the slot to the item tile to print to screen later
+
+	libtcod.console_put_char(window, 34, 24, equip_slots[0], libtcod.BKGND_NONE) #helmet
+	libtcod.console_put_char(window, 34, 23, equip_slots[1], libtcod.BKGND_NONE) #chest
+	libtcod.console_put_char(window, 34, 22, equip_slots[2], libtcod.BKGND_NONE) #pants
+	libtcod.console_put_char(window, 33, 23, equip_slots[3], libtcod.BKGND_NONE) #left hand
+	libtcod.console_put_char(window, 35, 23, equip_slots[4], libtcod.BKGND_NONE) #right hand
+	
+	
+	#blit the contents to root console
+	x = SCREEN_WIDTH/2 - CHARACTER_SCREEN_WIDTH/2
+	y = SCREEN_HEIGHT/2 - CHARACTER_SCREEN_HEIGHT/2
+	libtcod.console_blit(window, 0, 0, CHARACTER_SCREEN_WIDTH, CHARACTER_SCREEN_HEIGHT, 0, x, y, 1.0, 0.7)
+
+	#present console and wait for key press
+	libtcod.console_flush()
+	key = libtcod.console_wait_for_keypress(True)
+
+	
 def get_all_equipped(obj): #return list of all equipped items
 	if obj == player:
 		equipped_list = []
