@@ -905,11 +905,17 @@ def check_level_up():
 		elif choice == 2:
 			player.fighter.base_defense += 1
 
-def get_equipped_in_slot(slot):
+def get_equipped_in_slot(slot, char=False):
 	for obj in inventory:
 		if obj.equipment and obj.equipment.slot == slot and obj.equipment.is_equipped:
-			return obj.equipment
-	return None
+			if char == False:
+				return obj.equipment
+			else:
+				return obj.char
+	if char == False:
+		return None
+	else:
+		return empty_tile
 
 def player_death(player):
 	#game ogre
@@ -1067,27 +1073,20 @@ def character_menu(): #shows equipped items and currents stats
 	#equipment section
 	libtcod.console_print_ex(window, 35, 20, libtcod.BKGND_SCREEN, libtcod.RIGHT, 'Equipment') #title
 
-	head_item = get_equipped_in_slot('helmet')
-	chest_item = get_equipped_in_slot('chest')
-	leg_item = get_equipped_in_slot('pants')
-	lhand_item = get_equipped_in_slot('left hand')
-	rhand_item = get_equipped_in_slot('right hand')
+	head_item = get_equipped_in_slot('helmet', True)
+	chest_item = get_equipped_in_slot('chest', True)
+	leg_item = get_equipped_in_slot('pants', True)
+	lhand_item = get_equipped_in_slot('left hand', True)
+	rhand_item = get_equipped_in_slot('right hand', True)
 
-	equip_slots = [head_item, chest_item, leg_item, lhand_item, rhand_item] #array of equipment slots
 
-	for slot in equip_slots: #running through every slot to check if empty or contains item
-		if slot == None: #if none, set to empty_tile to print later
-			slot = empty_tile
-		else: 
-			slot = slot.owner.char #set the slot to the item tile to print to screen later
-
-	libtcod.console_put_char(window, 34, 24, equip_slots[0], libtcod.BKGND_NONE) #helmet
-	libtcod.console_put_char(window, 34, 23, equip_slots[1], libtcod.BKGND_NONE) #chest
-	libtcod.console_put_char(window, 34, 22, equip_slots[2], libtcod.BKGND_NONE) #pants
-	libtcod.console_put_char(window, 33, 23, equip_slots[3], libtcod.BKGND_NONE) #left hand
-	libtcod.console_put_char(window, 35, 23, equip_slots[4], libtcod.BKGND_NONE) #right hand
+	libtcod.console_put_char(window, 34, 24, head_item, libtcod.BKGND_NONE) #helmet
+	libtcod.console_put_char(window, 34, 23, chest_item, libtcod.BKGND_NONE) #chest
+	libtcod.console_put_char(window, 34, 22, leg_item, libtcod.BKGND_NONE) #pants
+	libtcod.console_put_char(window, 33, 23, lhand_item, libtcod.BKGND_NONE) #left hand
+	libtcod.console_put_char(window, 35, 23, rhand_item, libtcod.BKGND_NONE) #right hand
 	
-	
+
 	#blit the contents to root console
 	x = SCREEN_WIDTH/2 - CHARACTER_SCREEN_WIDTH/2
 	y = SCREEN_HEIGHT/2 - CHARACTER_SCREEN_HEIGHT/2
