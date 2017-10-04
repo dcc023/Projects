@@ -28,29 +28,37 @@ def search_file(file): #search given file
 
 	#finds all jpeg files
 	jpg_text = re.findall(r'ffd8.*ffd9', binascii.hexlify(target_file)) #change to hex and search file for jpeg magic numbers
-	jpg_file = open("jpg_file.jpg", 'wb')
-	jpg_file.write(binascii.unhexlify(jpg_text[0]))
-	jpg_file.close()
+	if len(jpg_text) >= 1:
+		jpg_file = open("jpg_file.jpg", 'wb')
+		jpg_file.write(binascii.unhexlify(jpg_text[0]))
+		jpg_file.close()
+		say("jpeg found!")
 
 	#find all pdf files
 	pdf_text = re.findall(r'25504446.*25454f46', binascii.hexlify(target_file))
-	pdf_file = open("pdf_file.pdf", 'wb')
-	pdf_file.write(binascii.unhexlify(pdf_text[0]))
-	pdf_file.close()
+	if len(pdf_text) >= 1:
+		pdf_file = open("pdf_file.pdf", 'wb')
+		pdf_file.write(binascii.unhexlify(pdf_text[0]))
+		pdf_file.close()
+		say("pdf found!")
 
 	#find all gif files
 	gif_text = re.findall(r'47494638.*3b', binascii.hexlify(target_file))
-	gif_file = open("gif_file.gif", 'wb')
-	gif_file.write(binascii.unhexlify(gif_text[0] + "0"))
-	gif_file.close()
+	if len(gif_text) >= 1:
+		gif_file = open("gif_file.gif", 'wb')
+		gif_file.write(binascii.unhexlify(gif_text[0] + "0")) #add the 0 to fix odd offset
+		gif_file.close()
+		say("gif found!")
 
 	#find all png files
 	png_text = re.findall(r'89504e47.*49454e44ae426082', binascii.hexlify(target_file))
-	png_file = open("png_file.png", 'wb')
-	png_file.write(binascii.unhexlify(png_text[0]))
-	png_file.close()
+	if len(png_text) >= 1:
+		png_file = open("png_file.png", 'wb')
+		png_file.write(binascii.unhexlify(png_text[0]))
+		png_file.close()
+		say("png found!")
 
-def say(text): #print and wait
+def say(text): #print and flush
 	print(text)
 	sys.stdout.flush()
 
