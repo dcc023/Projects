@@ -22,7 +22,6 @@ def decode_base64(file): #decode file from base64 to ASCII
 def search_file(file): #search given file
 	#Pepare decoded file to be searched
 	target_file = open(file, 'rb').read()
-	hex = open("hex.txt", 'wb').write(binascii.hexlify(target_file))
 
 	#Search through decoded file for certain hidden files
 	#I have decided to use regular expressions to find the patterns
@@ -46,8 +45,8 @@ def search_file(file): #search given file
 	gif_file.close()
 
 	#find all png files
-	png_text = re.findall(r'89504e47', binascii.hexlify(target_file))
-	png_file = open("gif_file.gif", 'wb')
+	png_text = re.findall(r'89504e47.*49454e44ae426082', binascii.hexlify(target_file))
+	png_file = open("png_file.png", 'wb')
 	png_file.write(binascii.unhexlify(png_text[0]))
 	png_file.close()
 
@@ -80,8 +79,7 @@ if encrypted.lower() == 'yes':
 	search_file("decoded.bin")
 else:
 	search_file(file)
-##notes
-# PDF: eof = 25 25 45 4F 46 0D 0A
+
 
 
 
