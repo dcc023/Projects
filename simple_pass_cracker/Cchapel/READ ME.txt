@@ -1,0 +1,1 @@
+One of the pictures in this ZIP has a hidden message. Perform Least Significant Bit Steganalysis on one of the RGB colors of each pixel! If you extract the message correctly, you earn a BONUS!
