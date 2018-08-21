@@ -20,7 +20,7 @@ There are certain things you may need before getting this program working effect
 1. From the command line, cd into the directory containing `game.py`
 2. Then run `python2 game.py` or whatever your python command is.
 
-##Game Handbook
+## Game Handbook
 
 ### Controls:
 * `W``A``S``D`: to move character around map
