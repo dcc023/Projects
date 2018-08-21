@@ -27,9 +27,9 @@ playery = SCREEN_HEIGHT/2
 
 #dungeon generation
 ROOM_MAX_SIZE = 10
-ROOM_MIN_SIZE = 6
+ROOM_MIN_SIZE = 8
 MAX_ROOMS = 30
-MAX_ROOM_MONSTERS = 3
+MAX_ROOM_MONSTERS = 7
 MAX_ROOM_ITEMS = 3
 
 #field of view
@@ -385,7 +385,7 @@ def new_game():
 	global player, inventory, game_msgs, game_state, dungeon_level
 
 	#create object representing the player
-	fighter_component = Fighter(hp=50, defense=2, power=5, xp=0, death_function=player_death)
+	fighter_component = Fighter(hp=50, defense=2, power=10, xp=0, death_function=player_death)
 	player = Object(0, 0, player_tile, 'player', libtcod.white, blocks=True, fighter=fighter_component)
 	player.level = 1
 	dungeon_level = 1
@@ -779,7 +779,7 @@ def place_objects(room):
 		x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
 		y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
-		monster_chances = {'centaur':75, 'cthulu':5, 'evilunicorn':25}
+		monster_chances = {'centaur':70, 'cthulu':5, 'evilunicorn':25}
 		choice = random_choice(monster_chances)
 
 		if choice == 'centaur': #75% chance of a centaur
