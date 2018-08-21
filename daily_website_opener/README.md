@@ -1,5 +1,5 @@
 # Daily Websites Opener
-###`faves.py`
+### `faves.py`
 
 This program will store all of your favorite websites that you visit daily and will open them all with one simple command line argument.
 
@@ -7,7 +7,7 @@ This program will store all of your favorite websites that you visit daily and w
 
 There are certain things you may need before getting this program working effectively.
 
-###Prerequisites:
+### Prerequisites:
 
 * Python 3
 * webbrowser (python package)
@@ -15,7 +15,7 @@ There are certain things you may need before getting this program working effect
 pip install webbrowser
 ```
 
-###Commands:
+### Commands:
     faves.py 
 		Opens all your saved pages in a multi-tab window.
 
@@ -29,19 +29,19 @@ pip install webbrowser
 		Deletes the indicated url from your saved pages
 
 
-##Notes
-###Save File 
+## Notes
+### Save File 
 `savePages.txt`
 
 This program saves the urls in plain text and seperates them by new lines in a text file that is stored in the same directory as the program.
 
 You can easily manipulate the **savedPages.txt** to change your saved pages by just adding a url to a new line or deleting ones you no longer want.
 
-###Default Browser
+### Default Browser
 If you are on Windows, it will try to find Google Chrome in your ProgramFiles(x86).
 If not found, it will use whatever your default browser is.
 
 On Edge and Firefox, it seems to open a new window for each website, for me at least. Works best on Chrome.
 
-##Author
+## Author
 * Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)

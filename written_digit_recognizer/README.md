@@ -1,15 +1,15 @@
 # Written Digit Recognizer
-###`three_layer_network.java`
+### `three_layer_network.java`
 
 A three layer neural network built from scratch using Java to identify handwritten digits from the popular MNIST dataset.
 
-###Prerequisites:
+### Prerequisites:
 
 TODO
 
-###How To:
+### How To:
 TODO
 
-###Author
+### Author
 * Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
 

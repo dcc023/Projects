@@ -1,5 +1,5 @@
 # File Carver
-###`file_carving.py`
+### `file_carving.py`
 
 This program scrapes through a given file and exposes the hidden files amongst it. 
 Locates jpeg, gif, pdf, and png files and outputs them.
@@ -8,13 +8,13 @@ Locates jpeg, gif, pdf, and png files and outputs them.
 
 There are certain things you may need before getting this program working effectively.
 
-###Prerequisites:
+### Prerequisites:
 
 * Python 2.7
 
 
 
-###How To:
+### How To:
 1. The program is setup to carve any file you give it as an input. For our case we will use
 “corrupted.docx”. When prompted, just type “corrupted.docx” (make sure it is in same
 directory as file_carving.py)
@@ -23,7 +23,7 @@ directory as file_carving.py)
 pdf,png)
 
 
-##Notes
+## Notes
  
 * I used HxD to search various filetypes, specifically jpeg, pdf, gif, and png, for their
 header and footer tags.
@@ -34,5 +34,5 @@ file so that the file text became raw hex. Then after searching, I dehexlified i
 it to the specific filetype.
 * Inititally I used the base64 library to decode it from base64 to ascii.
 
-##Author
+## Author
 * Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)

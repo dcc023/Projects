@@ -1,5 +1,5 @@
 # Blood for Blood
-###`game.py`
+### `game.py`
 
 This is a simple roguelike that has you traversing infinite randomized dungeons with monsters to kill,
  gear to snag, items to consume, and levels/attributes to gain.
@@ -8,7 +8,7 @@ This is a simple roguelike that has you traversing infinite randomized dungeons 
 
 There are certain things you may need before getting this program working effectively.
 
-###Prerequisites:
+### Prerequisites:
 
 * Python 2.7
 * [libtcod 1.6](https://bitbucket.org/libtcod/libtcod/downloads/): Download the latest release of libtcod 1.6 and extract it somewhere. Be warned that both Python and libtcod must either be both 32 bit, or both 64 bit.
@@ -16,7 +16,7 @@ There are certain things you may need before getting this program working effect
 
 
 
-###How To:
+### How To:
 1. From the command line, cd into the directory containing `game.py`
 2. Then run `python2 game.py` or whatever your python command is.
 
@@ -51,6 +51,6 @@ There are certain things you may need before getting this program working effect
 * Sword (increases attack/ right handed)
 * Shield (increases defense/ left handed)
 
-##Author
+## Author
 * Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
 * Got started with help of [roguebasin](http://www.roguebasin.com)
