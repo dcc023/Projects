@@ -11,5 +11,5 @@ TODO
 TODO
 
 ### Author
-* Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
+* Dylan Campbell / [LinkedIn](https://www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
 
