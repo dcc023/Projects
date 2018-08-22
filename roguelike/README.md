@@ -52,5 +52,5 @@ There are certain things you may need before getting this program working effect
 * Shield (increases defense/ left handed)
 
 ## Author
-* Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
+* Dylan Campbell / [LinkedIn](https://www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
 * Got started with help of [roguebasin](http://www.roguebasin.com)

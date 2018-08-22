@@ -12,5 +12,5 @@ A very weak zip file password cracker. Only cracks lowercase alphabetic password
 2. When prompted, type the file location of the zip file you wish to be cracked.
 
 ### Author
-* Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
+* Dylan Campbell / [LinkedIn](https://www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
 

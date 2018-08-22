@@ -35,4 +35,4 @@ it to the specific filetype.
 * Inititally I used the base64 library to decode it from base64 to ascii.
 
 ## Author
-* Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
+* Dylan Campbell / [LinkedIn](https://www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)

@@ -15,4 +15,4 @@ Contains 100 Facts and 3 factual relationships.
 1. Load the `cs.pl` with the Prolog interpreter and have fun exploring this context space.
 
 ### Author
-* Dylan Campbell / [LinkedIn](www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
+* Dylan Campbell / [LinkedIn](https://www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
