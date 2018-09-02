@@ -24,7 +24,7 @@ There are certain things you may need before getting this program working effect
 
 ### Notes:
 
-There is a full write-up on this program on my [website](https://dcc023.github.io/simple-linear-regression.html).
+There is a full write-up on this program on my [website](https://dcc023.github.io/linear-regression-on-boxing-data.html#linear-regression-on-boxing-data).
 
 ## Author
 * Dylan Campbell / [LinkedIn](https://www.linkedin.com/in/dylancharlescampbell) / [github](http://github.com/dcc023)
